@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "sokol_app.h": "c",
+        "any": "c",
+        "sokol_glue.h": "c",
+        "compare": "cpp",
+        "cstdint": "cpp",
+        "format": "cpp",
+        "thread": "c",
+        "vector": "c",
+        "numbers": "cpp",
+        "sokol_time.h": "c",
+        "sokol_log.h": "c"
+    }
+}
