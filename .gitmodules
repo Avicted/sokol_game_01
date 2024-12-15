@@ -1,0 +1,3 @@
+[submodule "submodules/sokol"]
+	path = submodules/sokol
+	url = git@github.com:floooh/sokol.git
