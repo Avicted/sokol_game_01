@@ -10,6 +10,8 @@
         "vector": "c",
         "numbers": "cpp",
         "sokol_time.h": "c",
-        "sokol_log.h": "c"
-    }
+        "sokol_log.h": "c",
+        "fileutil.h": "c"
+    },
+    "cmake.ignoreCMakeListsMissing": true
 }
