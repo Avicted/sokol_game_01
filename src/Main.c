@@ -206,6 +206,7 @@ void
 cleanup(void)
 {
     __dbgui_shutdown();
+    sfetch_shutdown();
     sg_shutdown();
 }
 
