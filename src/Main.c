@@ -193,6 +193,9 @@ fetch_callback(const sfetch_response_t* response)
 void
 frame(void)
 {
+    // pump the sokol-fetch message queues, and invoke response callbacks
+    sfetch_dowork();
+
     sg_begin_pass(&(sg_pass){ .action = state.pass_action,
 			      .swapchain = sglue_swapchain() });
     sg_apply_pipeline(state.pip);
