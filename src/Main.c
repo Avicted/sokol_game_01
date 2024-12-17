@@ -43,12 +43,26 @@ typedef struct
     float r, g, b, a; // color
 } vertex_t;
 
-typedef
+typedef struct
+{
+    float x, y;
+} vec2_t;
+
+typedef struct
 {
     vertex_t vertices[4];
     uint16_t indices[6];
-}
-quad_t;
+} quad_t;
+
+#define MAX_QUADS 128
+
+typedef struct
+{
+    quad_t quads[MAX_QUADS];
+    int num_quads;
+} draw_frame_t;
+
+draw_frame_t draw_frame;
 
 static struct
 {
@@ -56,6 +70,8 @@ static struct
     sg_pipeline pip;
     sg_bindings bind;
     uint8_t file_buffer[1024 * 1024 * 32]; // Adjust the size as needed
+
+    quad_t quad;
 } state;
 
 // Forward declarations
@@ -66,6 +82,7 @@ void
 init(void)
 {
     sg_setup(&(sg_desc){
+      .buffer_pool_size = 128, // Increase the buffer pool size
       .environment = sglue_environment(),
       .logger.func = slog_func,
     });
@@ -78,50 +95,73 @@ init(void)
       .logger.func = slog_func,
     });
 
-    // pass action for clearing the framebuffer to some color
-    state.pass_action = (sg_pass_action){
-	.colors[0] = { .load_action = SG_LOADACTION_CLEAR,
-		       .clear_value = { 0.0f, 0.0f, 0.0f, 1.0f } }
-    };
-
-    /* Allocate an image handle, but don't actually initialize the image yet,
-       this happens later when the asynchronous file load has finished.
-       Any draw calls containing such an "incomplete" image handle
-       will be silently dropped.
-    */
+    // Allocate an image handle
     state.bind.images[IMG_tex] = sg_alloc_image();
 
-    // a sampler object
+    // Create a sampler object
     state.bind.samplers[SMP_smp] = sg_make_sampler(&(sg_sampler_desc){
       .min_filter = SG_FILTER_LINEAR,
       .mag_filter = SG_FILTER_LINEAR,
     });
 
-    // a vertex buffer
-    // clang-format off
-    vertex_t vertices[] = {
-        // Positions           // UVs        // Colors
-        {-0.5f,  0.5f, 0.0f,   0.0f, 1.0f,   1.0f, 1.0f, 1.0f, 1.0f}, // Top-left
-        { 0.5f,  0.5f, 0.0f,   1.0f, 1.0f,   1.0f, 1.0f, 1.0f, 1.0f}, // Top-right
-        { 0.5f, -0.5f, 0.0f,   1.0f, 0.0f,   1.0f, 1.0f, 1.0f, 1.0f}, // Bottom-right
-        {-0.5f, -0.5f, 0.0f,   0.0f, 0.0f,   1.0f, 1.0f, 1.0f, 1.0f}, // Bottom-left
-    };
-    // clang-format on
-    state.bind.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
-      .data = SG_RANGE(vertices), .label = "quad-vertices" });
+    // Create a vertex buffer without initializing it with data
+    state.bind.vertex_buffers[0] =
+      sg_make_buffer(&(sg_buffer_desc){ .usage = SG_USAGE_DYNAMIC,
+					.size = sizeof(vertex_t) * 4,
+					.label = "quad-vertices" });
 
-    // an index buffer with 2 triangles
+    // Create an index buffer with 2 triangles
     uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
     state.bind.index_buffer =
       sg_make_buffer(&(sg_buffer_desc){ .type = SG_BUFFERTYPE_INDEXBUFFER,
 					.data = SG_RANGE(indices),
 					.label = "quad-indices" });
 
-    // a shader (use separate shader sources here
+    // Create the quad
+    vertex_t vertices[] = {
+	// Positions           // UVs        // Colors
+	{ -0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f }, // Top-left
+	{ 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f },  // Top-right
+	{ 0.5f,
+	  -0.5f,
+	  0.0f,
+	  1.0f,
+	  1.0f,
+	  1.0f,
+	  1.0f,
+	  1.0f,
+	  1.0f }, // Bottom-right
+	{ -0.5f,
+	  -0.5f,
+	  0.0f,
+	  0.0f,
+	  1.0f,
+	  1.0f,
+	  1.0f,
+	  1.0f,
+	  1.0f }, // Bottom-left
+    };
+    state.bind.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
+      .usage = SG_USAGE_DYNAMIC,
+      .size = sizeof(vertices),
+    });
+
+    state.quad.vertices[0] = vertices[0];
+    state.quad.vertices[1] = vertices[1];
+    state.quad.vertices[2] = vertices[2];
+    state.quad.vertices[3] = vertices[3];
+
+    state.quad.indices[0] = indices[0];
+    state.quad.indices[1] = indices[1];
+    state.quad.indices[2] = indices[2];
+    state.quad.indices[3] = indices[3];
+    state.quad.indices[4] = indices[4];
+    state.quad.indices[5] = indices[5];
+
+    // Create a shader
     sg_shader shd = sg_make_shader(quad_shader_desc(sg_query_backend()));
 
-    // clang-format off
-    // a pipeline state object
+    // Create a pipeline state object
     state.pip = sg_make_pipeline(&(sg_pipeline_desc){
         .shader = shd,
         .index_type = SG_INDEXTYPE_UINT16,
@@ -138,22 +178,14 @@ init(void)
         .label = "quad-pipeline"
     });
 
+    // Default pass action
+    state.pass_action =
+      (sg_pass_action){ .colors[0] = {
+			  .load_action = SG_LOADACTION_CLEAR,
+			  .clear_value = { 0.0f, 0.0f, 0.0f, 1.0f },
+			} };
 
-    // default pass action
-    state.pass_action = (sg_pass_action){
-	.colors[0] = { 
-        .load_action = SG_LOADACTION_CLEAR,
-        .clear_value = { 1.0f, 0.0f, 1.0f, 1.0f },
-    }
-    };
-    // clang-format on
-
-    /* start loading the PNG file, we don't need the returned handle since
-      we can also get that inside the fetch-callback from the response
-      structure.
-       - NOTE that we're not using the user_data member, since all required
-	 state is in a global variable anyway
-   */
+    // Start loading the PNG file
     char path_buf[512];
     sfetch_send(&(sfetch_request_t){
       .path =
@@ -208,8 +240,44 @@ fetch_callback(const sfetch_response_t* response)
 }
 
 void
+update(void)
+{
+    // Make the quad bounce off the walls.
+    static vec2_t vel = { 0.001f, 0.001f };
+    static vec2_t pos = { 0.0f, 0.0f };
+
+    if (pos.x > 1.0f || pos.x < -1.0f) {
+	vel.x = -vel.x;
+    }
+    if (pos.y > 1.0f || pos.y < -1.0f) {
+	vel.y = -vel.y;
+    }
+
+    pos.x += vel.x;
+    pos.y += vel.y;
+
+    state.quad.vertices[0].x = -0.5f + pos.x;
+    state.quad.vertices[0].y = 0.5f + pos.y;
+
+    state.quad.vertices[1].x = 0.5f + pos.x;
+    state.quad.vertices[1].y = 0.5f + pos.y;
+
+    state.quad.vertices[2].x = 0.5f + pos.x;
+    state.quad.vertices[2].y = -0.5f + pos.y;
+
+    state.quad.vertices[3].x = -0.5f + pos.x;
+    state.quad.vertices[3].y = -0.5f + pos.y;
+
+    sg_update_buffer(state.bind.vertex_buffers[0],
+		     &(sg_range){ .ptr = state.quad.vertices,
+				  .size = sizeof(state.quad.vertices) });
+}
+
+void
 frame(void)
 {
+    update();
+
     // pump the sokol-fetch message queues, and invoke response callbacks
     sfetch_dowork();
 

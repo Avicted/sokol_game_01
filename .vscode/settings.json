@@ -11,7 +11,8 @@
         "numbers": "cpp",
         "sokol_time.h": "c",
         "sokol_log.h": "c",
-        "fileutil.h": "c"
+        "fileutil.h": "c",
+        "charconv": "c"
     },
     "cmake.ignoreCMakeListsMissing": true
 }
