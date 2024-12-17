@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
-//  quad-sapp.c
-//  Simple 2D rendering with vertex- and index-buffer.
+//  main.c taken built from quad-sapp.c base code
+//  Simple 2D texture rendering with vertex- and index-buffer.
 //------------------------------------------------------------------------------
 #include <stdio.h>
 
