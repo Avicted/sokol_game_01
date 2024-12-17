@@ -242,14 +242,14 @@ fetch_callback(const sfetch_response_t* response)
 void
 update(void)
 {
-    // Make the quad bounce off the walls.
-    static vec2_t vel = { 0.001f, 0.001f };
+    static vec2_t vel = { 0.005f, 0.007f };
     static vec2_t pos = { 0.0f, 0.0f };
 
-    if (pos.x > 1.0f || pos.x < -1.0f) {
+    // Bounce off the walls, take the quad size into account
+    if ((pos.x > 0.5f) || (pos.x < -0.5f)) {
 	vel.x = -vel.x;
     }
-    if (pos.y > 1.0f || pos.y < -1.0f) {
+    if ((pos.y > 0.5f) || (pos.y < -0.5f)) {
 	vel.y = -vel.y;
     }
 
