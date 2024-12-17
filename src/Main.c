@@ -2,8 +2,6 @@
 //  quad-sapp.c
 //  Simple 2D rendering with vertex- and index-buffer.
 //------------------------------------------------------------------------------
-// #include "quad-sapp.glsl.h"
-
 #include <stdio.h>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -34,29 +32,31 @@
 #include "util/dbgui.h"
 #include "util/fileutil.h"
 
-// Declare and initialize texture data
-int png_width;
-int png_height;
-int png_channels;
-
 // Define binding slots
 #define SLOT_tex 0
 #define SLOT_smp 1
+
+typedef struct
+{
+    float x, y, z;    // position
+    float u, v;	      // uv
+    float r, g, b, a; // color
+} vertex_t;
+
+typedef
+{
+    vertex_t vertices[4];
+    uint16_t indices[6];
+}
+quad_t;
 
 static struct
 {
     sg_pass_action pass_action;
     sg_pipeline pip;
     sg_bindings bind;
-    uint8_t file_buffer[1024 * 1024]; // Adjust the size as needed
+    uint8_t file_buffer[1024 * 1024 * 32]; // Adjust the size as needed
 } state;
-
-// Create a texture
-sg_image_desc img_desc = { 0 };
-// Create a sampler
-sg_sampler_desc smp_desc = { 0 };
-// Bind the texture and sampler
-sg_bindings bind = { 0 };
 
 // Forward declarations
 static void
@@ -78,6 +78,12 @@ init(void)
       .logger.func = slog_func,
     });
 
+    // pass action for clearing the framebuffer to some color
+    state.pass_action = (sg_pass_action){
+	.colors[0] = { .load_action = SG_LOADACTION_CLEAR,
+		       .clear_value = { 0.0f, 0.0f, 0.0f, 1.0f } }
+    };
+
     /* Allocate an image handle, but don't actually initialize the image yet,
        this happens later when the asynchronous file load has finished.
        Any draw calls containing such an "incomplete" image handle
@@ -93,12 +99,12 @@ init(void)
 
     // a vertex buffer
     // clang-format off
-    float vertices[] = {
-        // positions            colors
-        -0.5f,  0.5f, 0.5f,     1.0f, 0.0f, 0.0f, 1.0f,
-         0.5f,  0.5f, 0.5f,     0.0f, 1.0f, 0.0f, 1.0f,
-         0.5f, -0.5f, 0.5f,     0.0f, 0.0f, 1.0f, 1.0f,
-        -0.5f, -0.5f, 0.5f,     1.0f, 1.0f, 0.0f, 1.0f,
+    vertex_t vertices[] = {
+        // Positions           // UVs        // Colors
+        {-0.5f,  0.5f, 0.0f,   0.0f, 1.0f,   1.0f, 1.0f, 1.0f, 1.0f}, // Top-left
+        { 0.5f,  0.5f, 0.0f,   1.0f, 1.0f,   1.0f, 1.0f, 1.0f, 1.0f}, // Top-right
+        { 0.5f, -0.5f, 0.0f,   1.0f, 0.0f,   1.0f, 1.0f, 1.0f, 1.0f}, // Bottom-right
+        {-0.5f, -0.5f, 0.0f,   0.0f, 0.0f,   1.0f, 1.0f, 1.0f, 1.0f}, // Bottom-left
     };
     // clang-format on
     state.bind.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
@@ -121,9 +127,15 @@ init(void)
         .index_type = SG_INDEXTYPE_UINT16,
         .layout = { .attrs = { 
             [ATTR_quad_position].format = SG_VERTEXFORMAT_FLOAT3,
+            [ATTR_quad_texcoord0].format = SG_VERTEXFORMAT_FLOAT2,
             [ATTR_quad_color0].format = SG_VERTEXFORMAT_FLOAT4,
         }},
-      .label = "quad-pipeline" 
+        .cull_mode = SG_CULLMODE_NONE,
+        .depth = {
+            .compare = SG_COMPAREFUNC_LESS_EQUAL,
+            .write_enabled = true
+        },
+        .label = "quad-pipeline"
     });
 
 
@@ -131,7 +143,7 @@ init(void)
     state.pass_action = (sg_pass_action){
 	.colors[0] = { 
         .load_action = SG_LOADACTION_CLEAR,
-        .clear_value = { 0.0f, 0.0f, 0.0f, 1.0f },
+        .clear_value = { 1.0f, 0.0f, 1.0f, 1.0f },
     }
     };
     // clang-format on
@@ -170,8 +182,9 @@ fetch_callback(const sfetch_response_t* response)
 						desired_channels);
 	if (pixels) {
 	    // ok, time to actually initialize the sokol-gfx texture
+	    state.bind.images[SLOT_tex] = sg_alloc_image();
 	    sg_init_image(
-	      state.bind.images[IMG_tex],
+	      state.bind.images[SLOT_tex],
 	      &(sg_image_desc){ .width = png_width,
 				.height = png_height,
 				.pixel_format = SG_PIXELFORMAT_RGBA8,
@@ -180,13 +193,17 @@ fetch_callback(const sfetch_response_t* response)
 				  .size = (size_t)(png_width * png_height * 4),
 				} });
 	    stbi_image_free(pixels);
+
+	} else if (response->failed) {
+	    // if loading the file failed, set clear color to red
+	    state.pass_action = (sg_pass_action){
+		.colors[0] = { .load_action = SG_LOADACTION_CLEAR,
+			       .clear_value = { 1.0f, 0.0f, 0.0f, 1.0f } }
+	    };
+
+	    printf("fetch_callback: %s\n",
+		   response->failed ? "failed" : "succeeded");
 	}
-    } else if (response->failed) {
-	// if loading the file failed, set clear color to red
-	state.pass_action = (sg_pass_action){
-	    .colors[0] = { .load_action = SG_LOADACTION_CLEAR,
-			   .clear_value = { 1.0f, 0.0f, 0.0f, 1.0f } }
-	};
     }
 }
 
@@ -198,8 +215,10 @@ frame(void)
 
     sg_begin_pass(&(sg_pass){ .action = state.pass_action,
 			      .swapchain = sglue_swapchain() });
+
     sg_apply_pipeline(state.pip);
     sg_apply_bindings(&state.bind);
+
     sg_draw(0, 6, 1);
     sg_end_pass();
     sg_commit();
@@ -218,6 +237,7 @@ sokol_main(int argc, char* argv[])
 {
     (void)argc;
     (void)argv;
+
     return (sapp_desc){
 	.init_cb = init,
 	.frame_cb = frame,

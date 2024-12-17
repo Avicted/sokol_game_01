@@ -1,8 +1,8 @@
 /* quad vertex shader */
 @vs vs
 in vec4 position;
-in vec4 color0;
 in vec2 texcoord0;
+in vec4 color0;
 
 out vec4 color;
 out vec2 uv;
