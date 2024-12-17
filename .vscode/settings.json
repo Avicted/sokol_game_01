@@ -12,7 +12,24 @@
         "sokol_time.h": "c",
         "sokol_log.h": "c",
         "fileutil.h": "c",
-        "charconv": "c"
+        "charconv": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "span": "c",
+        "hash_map": "c",
+        "bitset": "c",
+        "initializer_list": "c",
+        "__hash_table": "c",
+        "__split_buffer": "c",
+        "__tree": "c",
+        "deque": "c",
+        "list": "c",
+        "map": "c",
+        "queue": "c",
+        "stack": "c",
+        "unordered_map": "c",
+        "valarray": "c"
     },
     "cmake.ignoreCMakeListsMissing": true
 }

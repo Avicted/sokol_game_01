@@ -1,5 +1,14 @@
-# No formatting!
-BasedOnStyle: Mozilla
-
-IndentWidth: 4
-UseTab: Always
+BasedOnStyle: Google # Use the Google style as a base
+IndentWidth: 4 # Standard 4 spaces for indentation
+TabWidth: 4 # Same as IndentWidth
+UseTab: Never # Use spaces instead of tabs
+AlignConsecutiveAssignments: true # Align consecutive assignments
+AlignConsecutiveDeclarations: true # Align consecutive declarations
+ColumnLimit: 100 # Limit line length to 80 characters
+AllowAllParametersOfDeclarationOnNextLine: true # Force parameters onto their own line
+BinPackArguments: false # Do not pack arguments into one line
+BinPackParameters: false # Do not pack parameters into one line
+BinPackStructs: false # Force breaking struct fields into separate lines
+BreakBeforeBraces: Allman # Place opening braces on their own line
+SpaceBeforeParens: ControlStatements # Add space before parentheses in control statements
+BreakConstructorInitializers: BeforeComma # Break after each comma in constructor initializers
