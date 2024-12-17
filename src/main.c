@@ -34,6 +34,8 @@
 // Define binding slots
 #define SLOT_tex 0
 #define SLOT_smp 1
+#define GAME_WIDTH 640
+#define GAME_HEIGHT 360
 
 typedef struct
 {
@@ -247,21 +249,44 @@ void update(void)
                      &(sg_range){.ptr = state.quad.vertices, .size = sizeof(state.quad.vertices)});
 }
 
-void frame(void)
+static void render(void)
 {
-    update();
-
     // pump the sokol-fetch message queues, and invoke response callbacks
     sfetch_dowork();
 
+    // Clear the whole screen with black
+    state.pass_action.colors[0].clear_value = (sg_color){0.0f, 0.0f, 0.0f, 1.0f};
     sg_begin_pass(&(sg_pass){.action = state.pass_action, .swapchain = sglue_swapchain()});
+
+    {  // Set the Viewport size
+        const int   w      = sapp_width();
+        const int   h      = sapp_height();
+        const float aspect = (float)w / (float)h;
+
+        // Keep the viewport the same 16:9 aspect ratio as the GAME_WIDTH and GAME_HEIGHT
+        const float aspect_ratio = 16.0f / 9.0f;
+        const int   vp_w         = aspect > (aspect_ratio) ? (int)(h * (aspect_ratio)) : w;
+        const int   vp_h         = aspect > (aspect_ratio) ? h : (int)(w / (aspect_ratio));
+        const int   vp_x         = (w - vp_w) / 2;
+        const int   vp_y         = (h - vp_h) / 2;
+
+        sg_apply_viewport(vp_x, vp_y, vp_w, vp_h, true);
+        sg_apply_scissor_rect(vp_x, vp_y, vp_w, vp_h, true);
+    }
 
     sg_apply_pipeline(state.pip);
     sg_apply_bindings(&state.bind);
 
     sg_draw(0, 6, 1);
     sg_end_pass();
+
     sg_commit();
+}
+
+void frame(void)
+{
+    update();
+    render();
 }
 
 void cleanup(void)
@@ -281,8 +306,8 @@ sapp_desc sokol_main(int argc, char *argv[])
         .frame_cb           = frame,
         .cleanup_cb         = cleanup,
         .event_cb           = __dbgui_event,
-        .width              = 640,
-        .height             = 360,
+        .width              = GAME_WIDTH,
+        .height             = GAME_HEIGHT,
         .window_title       = "sokol_game_01",
         .icon.sokol_default = true,
         .logger.func        = slog_func,
