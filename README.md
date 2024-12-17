@@ -10,3 +10,5 @@ chmod +x ./build.sh ./sokol-shdc
 ./build.sh
 ```
 
+## Screenshot
+![Screenshot](resources/screenshot.png)
